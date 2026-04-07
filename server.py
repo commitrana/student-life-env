@@ -31,3 +31,7 @@ async def step(action: StudentAction):
 @app.get("/state")
 async def state():
     return env.state.model_dump()
+
+@app.get("/")
+def root():
+    return {"status": "healthy", "message": "Server is running"}

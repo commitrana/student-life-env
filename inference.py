@@ -14,6 +14,8 @@ MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 # LEARNING MEMORY SYSTEM
 # ============================================
 class LearningMemory:
+    def get_policy():
+    # returns your policy object
     def __init__(self):
         self.previous_action = None
         self.previous_reward = 0
