@@ -18,7 +18,14 @@ dependencies = [
 ]
 
 [project.scripts]
+server = "server:main"
+
+[project.scripts]
 student-env-server = "server:app"
+
+
+[project.dependencies]
+openenv-core>=0.2.0
 
 [tool.setuptools.packages.find]
 where = ["."]
