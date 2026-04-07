@@ -1,0 +1,5 @@
+# openenv.yaml
+name: student-life-env
+description: Simulates student decision-making with LLM agent
+entrypoint: server:app
+dockerfile: Dockerfile
