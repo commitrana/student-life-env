@@ -15,17 +15,11 @@ dependencies = [
     "pydantic>=2.0.0",
     "openai>=1.0.0",
     "huggingface-hub>=0.22.0",
+    "openenv-core>=0.2.0",
 ]
 
 [project.scripts]
-server = "server:main"
-
-[project.scripts]
-student-env-server = "server:app"
-
-
-[project.dependencies]
-openenv-core>=0.2.0
+server = "server.app:app"
 
 [tool.setuptools.packages.find]
 where = ["."]
