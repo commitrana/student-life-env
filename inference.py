@@ -2,7 +2,7 @@
 import os
 import requests
 import json
-
+import random
 from datetime import datetime
 
 API_KEY = os.getenv("HF_TOKEN")
@@ -10,12 +10,12 @@ BASE_URL = "http://localhost:8000"
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+
+
 # ============================================
 # LEARNING MEMORY SYSTEM
 # ============================================
 class LearningMemory:
-    def get_policy():
-    # returns your policy object
     def __init__(self):
         self.previous_action = None
         self.previous_reward = 0
@@ -41,7 +41,7 @@ class LearningMemory:
     def save_history(self):
         """Save learning to file"""
         data = {
-            'episodes': self.episode_history[-20:],  # Keep last 20 episodes
+            'episodes': self.episode_history[-20:],
             'best_strategy': self.best_strategy
         }
         with open("learning_history.json", "w") as f:
@@ -52,7 +52,6 @@ class LearningMemory:
         if self.previous_action is None:
             return "🎯 First decision of this episode. Make it count!"
 
-        # Special case for task completion (reward > 80)
         if current_reward > 80:
             return f"🎉 AMAZING! You completed a task! +{current_reward} points! Great strategy!"
 
@@ -107,7 +106,6 @@ class LearningMemory:
         }
         self.episode_history.append(episode)
 
-        # Calculate improvement
         best_score = max([e.get('score', 0) for e in self.episode_history])
         improvement = total_reward - best_score if total_reward != best_score else 0
 
@@ -124,7 +122,6 @@ class LearningMemory:
             print(f"   📉 This episode was {abs(improvement)} points below best.")
         print(f"   Total episodes learned: {len(self.episode_history)}")
 
-        # Show best strategy learned so far
         if self.best_strategy:
             print("\n   🧠 BEST STRATEGIES LEARNED:")
             sorted_strategies = sorted(self.best_strategy.items(),
@@ -159,7 +156,6 @@ if USE_LLM:
     def get_action_from_llm(observation, feedback, best_hint):
         """Use LLM to decide action with feedback and learning"""
 
-        # Format tasks with urgency
         tasks_text = ""
         current_day = observation.get('day', 1)
 
@@ -195,30 +191,6 @@ CURRENT STATUS:
 📋 TASKS:
 {tasks_text}
 
-⚡ ACTION EFFECTS:
-- work [task] → Progress +50%, Energy -5, Stress +2, Reward ~0.15 then 0.8 on completion
-- rest → Energy +40, Stress -20, Reward +0.1
-- spend [amount] → Reward -0.01 if >$500, +0.01 if ≤$500
-
-🎯 RULES:
-- Completing a task gives +0.8 bonus!
-- Deadline penalty: -0.02 per overdue task per day
-- Complete ALL tasks before Day 12 for +0.5 bonus!
-
-
-🎯 SMART STRATEGY (Learn from past):
-1. 🔴 URGENT tasks FIRST (deadline in 2 days or less)
-2. If energy < 40 → REST (can't work when tired)
-3. If stress > 70 → REST (need break)
-4. Tasks at 50% progress need ONE more work to complete (+105 reward!)
-5. Complete tasks in order of deadline: Assignment(Day3) → Hackathon(Day5) → Research(Day8) → Exam(Day7) → Project(Day10)
-
-Choose BEST action based on the feedback above.
-Respond EXACTLY in this format:
-work|TaskName
-rest
-spend|amount
-
 Your action:"""
 
         try:
@@ -226,7 +198,7 @@ Your action:"""
                 model=MODEL_NAME,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=30,
-                temperature=0.8  # Slight randomness for exploration
+                temperature=0.8
             )
 
             result = response.choices[0].message.content.strip()
@@ -273,7 +245,6 @@ def get_fallback_action(observation):
     incomplete = [t for t in tasks if not t.get('completed', False)]
     incomplete.sort(key=lambda x: x.get('deadline', 99))
 
-    # Prioritize tasks at 50% progress
     almost_done = [t for t in incomplete if t.get('progress', 0) >= 0.45]
     if almost_done:
         return {"action_type": "work", "task_name": almost_done[0].get('name'), "amount": None}
@@ -292,7 +263,7 @@ def get_best_action_hint(learning_memory, day):
     for strategy, stats in learning_memory.best_strategy.items():
         if f"day_{day}" in strategy and stats['count'] > 0:
             avg = stats['total'] / stats['count']
-            if avg > 50:  # Only show good strategies
+            if avg > 50:
                 best_actions.append((strategy, avg))
 
     if best_actions:
@@ -303,14 +274,54 @@ def get_best_action_hint(learning_memory, day):
 
 
 # ============================================
-# MAIN FUNCTION
+# OPENENV REQUIRED CLASS AND FUNCTIONS
+# ============================================
+class StudentLifePolicy:
+    def __init__(self):
+        self.learner = LearningMemory()
+        self.step_count = 0
+        self.current_obs = {}
+
+    def predict(self, observation):
+        """Predict action based on observation"""
+        self.current_obs = observation
+
+        feedback = self.learner.get_feedback(self.step_count) if self.step_count > 0 else "This is your first action."
+        current_day = observation.get('day', 1)
+        best_hint = get_best_action_hint(self.learner, current_day)
+        action = get_action_from_llm(observation, feedback, best_hint)
+
+        return action
+
+    def update(self, action, reward, observation):
+        """Update policy with step result"""
+        self.learner.update(action, reward)
+        self.learner.learn_from_step(self.step_count + 1, action, reward, observation)
+        self.step_count += 1
+
+    def reset(self):
+        """Reset for new episode"""
+        self.step_count = 0
+        self.current_obs = {}
+
+    def close(self):
+        """Clean up"""
+        self.learner.save_history()
+
+
+def get_policy():
+    """Required function for OpenEnv - returns policy instance"""
+    return StudentLifePolicy()
+
+
+# ============================================
+# MAIN FUNCTION (for local testing)
 # ============================================
 def main():
     print(f"[START] task=student env=openenv model={MODEL_NAME}")
     print("🔌 Connecting to environment server...")
     print("=" * 50)
 
-    # Initialize learning memory
     learner = LearningMemory()
 
     try:
@@ -329,14 +340,9 @@ def main():
         steps_data = []
 
         while not done and step < 12:
-            # Get feedback from previous action
             feedback = learner.get_feedback(step) if step > 0 else "This is your first action."
-
-            # Get hint from best strategies
             current_day = obs.get('day', 1)
             best_hint = get_best_action_hint(learner, current_day)
-
-            # Get action with learning feedback
             action = get_action_from_llm(obs, feedback, best_hint)
 
             action_desc = f"{action['action_type']}"
@@ -357,7 +363,6 @@ def main():
 
             total_reward += reward if reward else 0
 
-            # Store step data for learning
             steps_data.append({
                 'step': step + 1,
                 'action': action,
@@ -367,10 +372,7 @@ def main():
             print(
                 f"[STEP] step={step + 1} action={action_desc} reward={reward:.2f} done={str(done).lower()} error=null")
 
-            # Learn from this step
             learner.learn_from_step(step + 1, action, reward, obs)
-
-            # Update learner with this action for next feedback
             learner.update(action, reward)
 
             print(f"   ➕ Reward: {reward}")
@@ -381,20 +383,13 @@ def main():
             step += 1
 
         success = total_reward > 0
-        rewards_str = ",".join([f"{r:.2f}" for r in [step_data.get('reward', 0) for step_data in steps_data]])
-        print(f"[END] success={str(success).lower()} steps={step} rewards={rewards_str}")
+        print(f"[END] success={str(success).lower()} steps={step}")
 
         print("\n" + "=" * 50)
         print(f"🎯 FINAL TOTAL REWARD: {total_reward}")
         print(f"✅ Episode completed in {step} steps")
 
-        # Learn from complete episode
-        improved = learner.end_episode(steps_data, total_reward)
-
-        if improved:
-            print("\n🎉 The agent LEARNED and IMPROVED from this episode!")
-        else:
-            print("\n🤔 Keep running more episodes - the agent will learn better strategies!")
+        learner.end_episode(steps_data, total_reward)
 
         print("=" * 50)
 
