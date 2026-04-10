@@ -335,6 +335,26 @@ class StudentLifePolicy:
 
 def get_policy():
     """Required function for OpenEnv - returns policy instance"""
+    print("=" * 50)
+    print("OPENENV VALIDATION: get_policy() called")
+    print("=" * 50)
+    print(f"API_KEY present: {API_KEY is not None and API_KEY != ''}")
+    print(f"API_BASE_URL present: {API_BASE_URL is not None and API_BASE_URL != ''}")
+    print(f"USE_LLM: {USE_LLM}")
+    if USE_LLM:
+        try:
+            print("🔍 [OPENENV VALIDATION] Making test LLM call...")
+            test_response = client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[{"role": "user", "content": "OK"}],
+                max_tokens=2,
+                temperature=0.1
+            )
+            print(f"✅ [OPENENV VALIDATION] LLM proxy working! Response: {test_response.choices[0].message.content}")
+        except Exception as e:
+            print(f"⚠️ [OPENENV VALIDATION] LLM call failed: {e}")
+    else:
+        print("⚠️ [OPENENV VALIDATION] LLM not configured")
     return StudentLifePolicy()
 
 
