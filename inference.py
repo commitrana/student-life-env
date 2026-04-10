@@ -1,15 +1,20 @@
-# inference.py - WITH MEMORY & LEARNING
+# inference.py - WITH MEMORY & LEARNING - OPENENV COMPATIBLE
 import os
 import requests
 import json
 import random
 from datetime import datetime
 
-API_KEY = os.getenv("HF_TOKEN")
-BASE_URL = "http://localhost:8000"
+# ============================================
+# OPENENV ENVIRONMENT VARIABLES (MUST USE THESE)
+# ============================================
+# OpenEnv injects these - DO NOT change or hardcode
+API_KEY = os.getenv("API_KEY")  # OpenEnv's API key for LLM proxy
+API_BASE_URL = os.getenv("API_BASE_URL")  # OpenEnv's LiteLLM proxy URL
+BASE_URL = "http://localhost:8000"  # Internal server URL (DO NOT CHANGE)
 
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
-MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+# Optional model override (OpenEnv default is gpt-4)
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4")
 
 
 # ============================================
@@ -137,24 +142,28 @@ class LearningMemory:
 
 
 # ============================================
-# LLM SETUP
+# LLM SETUP - MUST USE OPENENV PROXY
 # ============================================
-USE_LLM = API_KEY is not None and API_KEY.startswith("hf_")
+
+# Check if OpenEnv provided the credentials
+USE_LLM = API_KEY is not None and API_BASE_URL is not None
 
 if USE_LLM:
     from openai import OpenAI
 
-    MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+    print(f"✅ LLM ACTIVE: Using OpenEnv LiteLLM proxy")
+    print(f"   API_BASE_URL: {API_BASE_URL}")
+    print(f"   Model: {MODEL_NAME}")
 
+    # Initialize client with OpenEnv's proxy (CRITICAL - DO NOT CHANGE)
     client = OpenAI(
-        base_url="https://router.huggingface.co/v1",
-        api_key=API_KEY
+        base_url=API_BASE_URL,  # MUST use OpenEnv's proxy URL
+        api_key=API_KEY  # MUST use OpenEnv's API key
     )
-    print(f"✅ LLM ACTIVE: Using {MODEL_NAME}")
 
 
     def get_action_from_llm(observation, feedback, best_hint):
-        """Use LLM to decide action with feedback and learning"""
+        """Use OpenEnv's LLM proxy to decide action with feedback and learning"""
 
         tasks_text = ""
         current_day = observation.get('day', 1)
@@ -191,6 +200,29 @@ CURRENT STATUS:
 📋 TASKS:
 {tasks_text}
 
+⚡ ACTION EFFECTS:
+- work [task] → Progress +50%, Energy -5, Stress +2, Reward ~0.15 then 0.8 on completion
+- rest → Energy +40, Stress -20, Reward +0.1
+- spend [amount] → Reward -0.01 if >$500, +0.01 if ≤$500
+
+🎯 RULES:
+- Completing a task gives +0.8 bonus!
+- Deadline penalty: -0.02 per overdue task per day
+- Complete ALL tasks before Day 12 for +0.5 bonus!
+
+🎯 SMART STRATEGY (Learn from past):
+1. 🔴 URGENT tasks FIRST (deadline in 2 days or less)
+2. If energy < 40 → REST (can't work when tired)
+3. If stress > 70 → REST (need break)
+4. Tasks at 50% progress need ONE more work to complete (+105 reward!)
+5. Complete tasks in order of deadline: Assignment(Day3) → Hackathon(Day5) → Research(Day8) → Exam(Day7) → Project(Day10)
+
+Choose BEST action based on the feedback above.
+Respond EXACTLY in this format:
+work|TaskName
+rest
+spend|amount
+
 Your action:"""
 
         try:
@@ -225,7 +257,8 @@ Your action:"""
             return get_fallback_action(observation)
 
 else:
-    print("⚠️ No valid HF_TOKEN found. Using heuristic actions.")
+    print("⚠️ OpenEnv LLM proxy not configured. Using heuristic actions.")
+    print("   Make sure API_KEY and API_BASE_URL environment variables are set.")
 
 
     def get_action_from_llm(observation, feedback, best_hint):
@@ -233,7 +266,7 @@ else:
 
 
 def get_fallback_action(observation):
-    """Fallback heuristic"""
+    """Fallback heuristic when LLM is not available"""
     energy = observation.get('energy', 100)
     stress = observation.get('stress', 10)
     tasks = observation.get('tasks', [])

@@ -1,0 +1,23 @@
+[33mcommit 94ec5327df90fc1bde4b4f408d9bd3e9ccb79c45[m[33m ([m[1;31mspace/main[m[33m, [m[1;31mspace/HEAD[m[33m)[m
+Author: Harshita Rana <Hrana20@users.noreply.huggingface.co>
+Date:   Tue Apr 7 11:57:29 2026 +0000
+
+    Update inference.py
+
+[33mcommit e8e969d7cd84d7d4b85a1e754edeede61df20954[m
+Author: Harshita Rana <Hrana20@users.noreply.huggingface.co>
+Date:   Tue Apr 7 11:36:37 2026 +0000
+
+    Update pyproject.toml
+
+[33mcommit d81ed8392d7c0126a034dc8177a59ba907cfb1b3[m
+Author: Harshita Rana <Hrana20@users.noreply.huggingface.co>
+Date:   Tue Apr 7 10:19:46 2026 +0000
+
+    Update server.py
+
+[33mcommit 9abf336ef0f5d99c216104398f6ccb1ab1518de7[m
+Author: Harshita Rana <Hrana20@users.noreply.huggingface.co>
+Date:   Tue Apr 7 10:15:56 2026 +0000
+
+    Update Dockerfile
